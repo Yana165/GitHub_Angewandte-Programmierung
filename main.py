@@ -6,6 +6,10 @@ import json
 from pathlib import Path
 from collections import Counter
 
+##################################
+#### Endpoints Day 1 ####
+##################################
+
 
 #app = fapi()
 
@@ -15,10 +19,11 @@ from collections import Counter
 
 
 
+##################################
+#### Note API Endpoints Day 2 ####
+##################################
 
-#######
-# Note API Endpoints (Day 2)
-#######
+
 
 app = fapi(
     title = "Applied Programming Course HS-Coburg",
@@ -26,9 +31,6 @@ app = fapi(
     version= "1.0.0" 
 )
 
-##################################
-#### Note API Endpoints Day 2 ####
-##################################
 
 class NoteCreate(BaseModel):
     title: str
@@ -141,7 +143,15 @@ def list_notes(
 
  
 
- 
 
+##################################
+#### Statistic Endpoints Day 3 ####
+##################################
 
+##################################
+#### Pytests Endpoints Day 4 ####
+##################################
 
+##################################
+####  Endpoints Day 5 ####
+##################################
