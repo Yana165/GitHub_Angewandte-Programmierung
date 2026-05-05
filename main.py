@@ -163,7 +163,88 @@ def get_note_stats():
         "unique_tags_count": len(tag_counter),
     }
 
+@app.get("/notes/{note_id}")
+def get_note(note_id: int) -> Note:
+    """Get a specific note by ID"""
+    notes_db, _ = load_notes()
 
+    for note in notes_db:
+        if note.id == note_id:
+            return note
+
+    raise HTTPException(status_code=404, detail=f"Note with ID {note_id} not found")
+
+
+@app.put("/notes/{note_id}")
+def update_note(note_id: int, note_update: NoteCreate) -> Note:
+    """Replace all fields of a note (full update)"""
+    notes_db, _ = load_notes()
+
+    for i, note in enumerate(notes_db):
+        if note.id == note_id:
+            updated = Note(
+                id=note.id,
+                title=note_update.title,
+                content=note_update.content,
+                category=note_update.category,
+                tags=note_update.tags,
+                created_at=note.created_at,
+            )
+            notes_db[i] = updated
+            save_notes(notes_db)
+            return updated
+
+    raise HTTPException(status_code=404, detail=f"Note with ID {note_id} not found")
+
+
+@app.delete("/notes/{note_id}")
+def delete_note(note_id: int):
+    """Delete a note by ID"""
+    notes_db, _ = load_notes()
+
+    for i, note in enumerate(notes_db):
+        if note.id == note_id:
+            notes_db.pop(i)
+            save_notes(notes_db)
+            return {"message": f"Note {note_id} deleted"}
+
+    raise HTTPException(status_code=404, detail=f"Note with ID {note_id} not found")
+
+
+@app.patch("/notes/{note_id}")
+def partial_update_note(note_id: int, note_update: NoteUpdate) -> Note:
+    """Partially update a note — only provided fields are changed"""
+    notes_db, _ = load_notes()
+
+    for i, note in enumerate(notes_db):
+        if note.id == note_id:
+            updated = Note(
+                id=note.id,
+                title=note_update.title if note_update.title is not None else note.title,
+                content=note_update.content if note_update.content is not None else note.content,
+                category=note_update.category if note_update.category is not None else note.category,
+                tags=note_update.tags if note_update.tags is not None else note.tags,
+                created_at=note.created_at,
+            )
+            notes_db[i] = updated
+            save_notes(notes_db)
+            return updated
+
+    raise HTTPException(status_code=404, detail=f"Note with ID {note_id} not found")
+
+
+@app.get("/categories")
+def list_categories() -> list[str]:
+    """Get all unique categories from all notes"""
+    notes_db, _ = load_notes()
+    return sorted({note.category for note in notes_db})
+
+
+@app.get("/categories/{category_name}/notes")
+def get_notes_by_category(category_name: str) -> list[Note]:
+    """Get all notes in a specific category"""
+    notes_db, _ = load_notes()
+    return [note for note in notes_db if note.category == category_name]
 
 
 ##################################
