@@ -7,7 +7,7 @@ from pathlib import Path
 from collections import Counter
 
 ##################################
-#### Endpoints Day 1 ####
+#### Endpoints Day 1          ####
 ##################################
 
 
@@ -15,7 +15,7 @@ from collections import Counter
 
 #@app.get("/name/{name}")
 #def greet_name(name:str): 
- #   return {"message": f"Hello, {name}!"}
+    #return {"message": f"Hello, {name}!"}
 
 
 
@@ -141,17 +141,43 @@ def list_notes(
     return filtered
 
 
- 
+@app.get("/notes/stats")
+def get_note_stats():
+    """Get statistics about all notes"""
+    notes_db, _ = load_notes()
+
+    by_category = {}
+    tag_counter = Counter()
+
+    for note in notes_db:
+        by_category[note.category] = by_category.get(note.category, 0) + 1
+        for tag in note.tags:
+            tag_counter[tag] += 1
+
+    top_tags = [{"tag": tag, "count": count} for tag, count in tag_counter.most_common(5)]
+
+    return {
+        "total_notes": len(notes_db),
+        "by_category": by_category,
+        "top_tags": top_tags,
+        "unique_tags_count": len(tag_counter),
+    }
+
+
 
 
 ##################################
-#### Statistic Endpoints Day 3 ####
+#### Statistic Endpoints Day 3 ###
 ##################################
 
 ##################################
-#### Pytests Endpoints Day 4 ####
+#### Pytests Endpoints Day 4  ####
 ##################################
 
 ##################################
-####  Endpoints Day 5 ####
+####  Endpoints Day 5         ####
+##################################
+
+##################################
+####  Endpoints Day 6         ####
 ##################################
