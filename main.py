@@ -7,6 +7,9 @@ from pathlib import Path
 from sqlmodel import SQLModel, Field, Session, create_engine, select
 from collections import Counter
 from typing import Optional
+from typing  import Annotated
+from fastapi import Depends
+
 
 ##################################
 #### Endpoints Day 1          ####
@@ -26,6 +29,11 @@ from typing import Optional
 ##################################
 
 engine = create_engine("sqlite:///notes.db", echo=True)
+def get_session():
+    with Session(engine) as session:
+        yield session
+
+SessionDep = Annotated[Session, Depends(get_session)]
 
 SQLModel.metadata.create_all(engine)
 
