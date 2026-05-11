@@ -4,7 +4,9 @@ from typing import Optional
 from datetime import datetime, timezone
 import json
 from pathlib import Path
+from sqlmodel import SQLModel, Field, Session, create_engine, select
 from collections import Counter
+from typing import Optional
 
 ##################################
 #### Endpoints Day 1          ####
@@ -23,6 +25,9 @@ from collections import Counter
 #### Note API Endpoints Day 2 ####
 ##################################
 
+engine = create_engine("sqlite:///notes.db", echo=True)
+
+SQLModel.metadata.create_all(engine)
 
 
 app = fapi(
@@ -251,9 +256,62 @@ def get_notes_by_category(category_name: str) -> list[Note]:
 #### Statistic Endpoints Day 3 ###
 ##################################
 
+@app.get("/queryparameters")
+def get_query_parameters(param1: str, param2: int) -> dict:
+
+        namen = ['martin', 'michael', 'sarah', 'anna', 'tom', 'lisa']
+
+        if not param1:
+              return{"namen": namen}
+
+        namen_gefiltert = []
+        for name in namen:
+                if param1 in name:
+                 namen_gefiltert.append(name)
+        return {"param1": param1, "param2": param2, "filtered_names": namen_gefiltert}
+
+
 ##################################
-#### Pytests Endpoints Day 4  ####
+#### Day 4: Greeting Endpoints TESTING ###
 ##################################
+
+class GreetingResponse(BaseModel):
+    """Response model for greeting endpoints
+
+    Attributes:
+        message (str): The greeting message to be returned to the client
+    """
+    message: str
+
+
+@app.get("/", response_model=GreetingResponse)
+def read_root():
+    """Welcome endpoint - returns greeting message"""
+    return {"message": "Hello World!"}
+
+
+
+
+@app.get("/greetings/{name}", response_model=GreetingResponse)
+def read_greeting(name: str):
+    """Personalized greeting endpoint - returns greeting message with name"""
+    return {"message": f"Hello {name}!"}
+
+
+@app.get("/is-adult/{age}")
+def check_adult(age: int):
+    """
+    Check if person is an adult (18 or older)
+    Example: /is-adult/17
+    """
+    is_adult = age >= 18
+
+    return {
+        "age": age,
+        "is_adult": is_adult,
+        "can_vote": is_adult,
+        "can_drive": is_adult
+    }
 
 ##################################
 ####  Endpoints Day 5         ####
