@@ -8,5 +8,6 @@ dependencies = [
     "faker>=40.15.0",
     "fastapi[standard]>=0.136.1",
     "pytest>=9.0.3",
+    "requests>=2.33.1",
     "sqlmodel>=0.0.38",
 ]
