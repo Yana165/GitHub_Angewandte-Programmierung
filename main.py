@@ -1,10 +1,16 @@
-from fastapi import FastAPI as fapi, HTTPException, Depends
-from pydantic import BaseModel
+from fastapi import FastAPI as fapi, HTTPException, Depends, Response
+from pydantic import BaseModel, StrictStr, field_validator
 from sqlmodel import SQLModel, Field, Session, create_engine, select
 from typing import Optional, Annotated
 from datetime import datetime, timezone
 from pathlib import Path
 from collections import Counter
+
+
+#### zum start der app und des frontends muss der mainserver laufen, dafür:
+# - Terminal 1: uv run fastapi dev main.py
+# schritt 2 ist das Frontend zu starten um zu sehen was geht, dafür:
+# - Terminal 2: uv run streamlit run frontend.py
 
 app = fapi(
     title = "Applied Programming Course HS-Coburg",
@@ -17,17 +23,46 @@ app = fapi(
 ##################################
 
 # Pydantic models for request bodies (tags as list)
-class NoteCreate(BaseModel): 
-    title: str
-    content: str
-    category: str
+def _normalize_tags(v: list[str]) -> list[str]:
+    """Strip + lowercase + dedupe. Reject tags shorter than 2 chars or more than 10 entries."""
+    seen = set()
+    result = []
+    for tag in v:
+        normalized = tag.strip().lower()
+        if len(normalized) < 2:
+            raise ValueError("each tag must be at least 2 characters after trimming")
+        if normalized not in seen:
+            seen.add(normalized)
+            result.append(normalized)
+    if len(result) > 10:
+        raise ValueError("at most 10 tags allowed per note")
+    return result
+
+
+class NoteCreate(BaseModel):
+    title: StrictStr
+    content: StrictStr
+    category: StrictStr
     tags: list[str] = []
 
+    @field_validator("tags")
+    @classmethod
+    def _validate_tags(cls, v: list[str]) -> list[str]:
+        return _normalize_tags(v)
+
+
 class NoteUpdate(BaseModel):
-    title: Optional[str] = None
-    content: Optional[str] = None
-    category: Optional[str] = None
+    title: Optional[StrictStr] = None
+    content: Optional[StrictStr] = None
+    category: Optional[StrictStr] = None
     tags: Optional[list[str]] = None
+
+    @field_validator("tags")
+    @classmethod
+    def _validate_tags(cls, v: Optional[list[str]]) -> Optional[list[str]]:
+        if v is None:
+            return None
+        return _normalize_tags(v)
 
 
 # SQLModel table: tags stored as CSV string (SQLite has no array type)
@@ -97,11 +132,15 @@ def list_notes(
     category: Optional[str] = None,
     search: Optional[str] = None,
     tag: Optional[str] = None,
-    created_after: Optional[str] = None,
-    created_before: Optional[str] = None,
+    created_after: Optional[datetime] = None,
+    created_before: Optional[datetime] = None,
 ) -> list[dict]:
     """List notes with optional filters"""
     notes_db = session.exec(select(Note)).all()
+
+    tag_lower = tag.lower() if tag else None
+    after_iso = created_after.isoformat() if created_after else None
+    before_iso = created_before.isoformat() if created_before else None
 
     filtered = []
     for note in notes_db:
@@ -116,13 +155,13 @@ def list_notes(
                 continue
 
         tag_list = _tags_to_list(note.tags)
-        if tag and tag not in tag_list:
+        if tag_lower and tag_lower not in tag_list:
             continue
 
-        if created_after and note.created_at < created_after:
+        if after_iso and note.created_at < after_iso:
             continue
 
-        if created_before and note.created_at > created_before:
+        if before_iso and note.created_at > before_iso:
             continue
 
         filtered.append(_note_to_dict(note))
@@ -180,15 +219,15 @@ def update_note(note_id: int, note_update: NoteCreate, session: SessionDep) -> d
     return _note_to_dict(note)
 
 
-@app.delete("/notes/{note_id}")
+@app.delete("/notes/{note_id}", status_code=204)
 def delete_note(note_id: int, session: SessionDep):
-    """Delete a note by ID"""
+    """Delete a note by ID. Returns 204 No Content."""
     note = session.get(Note, note_id)
     if note is None:
         raise HTTPException(status_code=404, detail=f"Note with ID {note_id} not found")
     session.delete(note)
     session.commit()
-    return {"message": f"Note {note_id} deleted"}
+    return Response(status_code=204)
 
 
 @app.patch("/notes/{note_id}")
@@ -225,6 +264,28 @@ def get_notes_by_category(category_name: str, session: SessionDep) -> list[dict]
     """Get all notes in a specific category"""
     notes_db = session.exec(select(Note).where(Note.category == category_name)).all()
     return [_note_to_dict(note) for note in notes_db]
+
+
+@app.get("/tags")
+def list_tags(session: SessionDep) -> list[str]:
+    """Get all unique tags across all notes (sorted)."""
+    notes_db = session.exec(select(Note)).all()
+    all_tags = set()
+    for note in notes_db:
+        all_tags.update(_tags_to_list(note.tags))
+    return sorted(all_tags)
+
+
+@app.get("/tags/{tag_name}/notes")
+def get_notes_by_tag(tag_name: str, session: SessionDep) -> list[dict]:
+    """Get all notes carrying a given tag (case-insensitive)."""
+    tag_lower = tag_name.lower()
+    notes_db = session.exec(select(Note)).all()
+    return [
+        _note_to_dict(note)
+        for note in notes_db
+        if tag_lower in _tags_to_list(note.tags)
+    ]
 
 
 ##################################
