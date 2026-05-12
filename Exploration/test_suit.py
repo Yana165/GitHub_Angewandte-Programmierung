@@ -33,7 +33,7 @@ def _create_note(**overrides) -> dict:
     payload = {
         "title": "Sample Note",
         "content": "Sample content",
-        "category": "work",
+        "category": "general",
         "tags": ["sample", "test"],
     }
     payload.update(overrides)
@@ -61,7 +61,7 @@ def seeded_notes() -> list[dict]:
             "title": "Team Meeting",
             "content": "Discuss Q2 goals and project timeline",
             "category": "work",
-            "tags": ["urgent", "meeting", "Q2"],
+            "tags": ["urgent", "meeting", "q2", "work"],
         },
         {
             "title": "Shopping List",
@@ -85,7 +85,7 @@ def seeded_notes() -> list[dict]:
             "title": "Project Deadline",
             "content": "Submit final report",
             "category": "work",
-            "tags": ["urgent", "deadline", "project"],
+            "tags": ["urgent", "deadline", "project", "work"],
         },
     ]
     return [_create_note(**seed) for seed in seeds]
@@ -109,7 +109,7 @@ def test_create_note_returns_201_and_payload():
     payload = {
         "title": "Team Meeting",
         "content": "Discuss Q2 goals",
-        "category": "work",
+        "category": "general",
         "tags": ["urgent", "meeting"],
     }
     response = requests.post(f"{BASE_URL}/notes", json=payload)
@@ -131,7 +131,7 @@ def test_create_note_normalizes_tags():
         json={
             "title": "Tag Test",
             "content": "Check tag normalization",
-            "category": "work",
+            "category": "general",
             "tags": ["URGENT", "urgent", "Meeting"],
         },
     )
@@ -351,7 +351,7 @@ def test_put_missing_note_returns_404():
         json={
             "title": "xxx",
             "content": "xxxxx",
-            "category": "work",
+            "category": "general",
             "tags": [],
         },
     )
@@ -441,7 +441,7 @@ def test_tag_too_short_returns_422():
 
 def test_create_note_with_10_tags():
     tags = [f"tag{i}" for i in range(10)]
-    payload = {"title": "10 tags", "content": "test", "category": "work", "tags": tags}
+    payload = {"title": "10 tags", "content": "test", "category": "general", "tags": tags}
     response = requests.post(f"{BASE_URL}/notes", json=payload)
     assert response.status_code == 201
     body = response.json()
@@ -471,7 +471,7 @@ def test_create_note_with_no_tags():
 def test_tags_field_omitted_defaults_to_empty():
     response = requests.post(
         f"{BASE_URL}/notes",
-        json={"title": "no tags", "content": "x", "category": "work"},
+        json={"title": "no tags", "content": "x", "category": "general"},
     )
     assert response.status_code == 201
     assert response.json()["tags"] == []
@@ -535,7 +535,7 @@ def test_patch_preserves_id_and_created_at(note):
 def test_put_can_clear_tags(note_id):
     response = requests.put(
         f"{BASE_URL}/notes/{note_id}",
-        json={"title": "title", "content": "content", "category": "work", "tags": []},
+        json={"title": "title", "content": "content", "category": "general", "tags": []},
     )
     assert response.status_code == 200
     assert response.json()["tags"] == []
@@ -690,7 +690,7 @@ def test_tags_endpoint_is_sorted_and_unique(seeded_notes):
 def test_full_crud_lifecycle():
     """Create → read → patch → put → delete → verify gone."""
     created = _create_note(
-        title="Lifecycle", content="initial", category="work", tags=["ab"]
+        title="Lifecycle", content="initial", category="work", tags=["ab", "work"]
     )
     nid = created["id"]
 
@@ -727,8 +727,11 @@ def test_full_crud_lifecycle():
 def test_note_appears_in_tag_and_category_resources():
     tag_name = "cross-ref-tag"
     category_name = "work"
+    tags = [tag_name]
+    if category_name == "work":
+        tags.append("work")
     created = _create_note(
-        title="Cross-ref", category=category_name, tags=[tag_name]
+        title="Cross-ref", category=category_name, tags=tags
     )
 
     by_tag = requests.get(f"{BASE_URL}/tags/{tag_name}/notes").json()

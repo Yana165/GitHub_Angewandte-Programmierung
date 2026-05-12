@@ -1,10 +1,12 @@
 from fastapi import FastAPI as fapi, HTTPException, Depends, Response
-from pydantic import BaseModel, StrictStr, field_validator
+from pydantic import BaseModel, field_validator, model_validator, ConfigDict, ValidationError, Field as PydanticField
 from sqlmodel import SQLModel, Field, Session, create_engine, select
 from typing import Optional, Annotated
 from datetime import datetime, timezone
 from pathlib import Path
 from collections import Counter
+from typing_extensions import Self
+import re
 
 
 #### zum start der app und des frontends muss der mainserver laufen, dafür:
@@ -22,7 +24,9 @@ app = fapi(
 #### Note API Endpoints Day 2 ####
 ##################################
 
-# Pydantic models for request bodies (tags as list)
+ALLOWED_CATEGORIES = {"work", "personal", "school", "ideas", "general"}
+
+
 def _normalize_tags(v: list[str]) -> list[str]:
     """Strip + lowercase + dedupe. Reject tags shorter than 2 chars or more than 10 entries."""
     seen = set()
@@ -40,29 +44,130 @@ def _normalize_tags(v: list[str]) -> list[str]:
 
 
 class NoteCreate(BaseModel):
-    title: StrictStr
-    content: StrictStr
-    category: StrictStr
-    tags: list[str] = []
+    model_config = ConfigDict(
+        str_strip_whitespace=True,
+        extra="forbid",
+    )
+
+    title: str = PydanticField(
+        min_length=3,
+        max_length=100,
+        description="Short note title shown in lists",
+    )
+    content: str = PydanticField(
+        min_length=1,
+        max_length=10_000,
+        description="Note body content",
+    )
+    category: str = PydanticField(
+        min_length=2,
+        max_length=30,
+        pattern=r"^[a-z]+$",
+        description="Lowercase category, e.g. work, personal, school",
+    )
+    tags: list[str] = PydanticField(
+        default_factory=list,
+        max_length=10,
+        description="Up to 10 lowercase tags",
+    )
+
+    @field_validator("title")
+    @classmethod
+    def validate_title(cls, v: str) -> str:
+        """Reject titles that are only whitespace after stripping."""
+        v = v.strip()
+        if len(v) < 3:
+            raise ValueError("title must be at least 3 characters after trimming")
+        return v
+
+    @field_validator("category", mode="before")
+    @classmethod
+    def validate_category(cls, v: str) -> str:
+        """Normalize to lowercase and restrict to allowed values."""
+        v = v.strip().lower()
+        if v not in ALLOWED_CATEGORIES:
+            raise ValueError(f"category must be one of {sorted(ALLOWED_CATEGORIES)}")
+        return v
 
     @field_validator("tags")
     @classmethod
-    def _validate_tags(cls, v: list[str]) -> list[str]:
+    def validate_tags(cls, v: list[str]) -> list[str]:
+        """Strip + lowercase each tag, drop duplicates, reject empty/short tags."""
         return _normalize_tags(v)
+
+    @model_validator(mode="after")
+    def work_notes_need_work_tag(self) -> Self:
+        """
+        Cross-field rule: work notes must include the 'work' tag.
+        This must be a model validator because it accesses multiple fields (category + tags).
+        """
+        if self.category == "work" and "work" not in self.tags:
+            raise ValueError("work notes must include the 'work' tag")
+        return self
 
 
 class NoteUpdate(BaseModel):
-    title: Optional[StrictStr] = None
-    content: Optional[StrictStr] = None
-    category: Optional[StrictStr] = None
-    tags: Optional[list[str]] = None
+    model_config = ConfigDict(
+        str_strip_whitespace=True,
+        extra="forbid",
+    )
+
+    title: str | None = PydanticField(default=None, min_length=3, max_length=100)
+    content: str | None = PydanticField(default=None, min_length=1, max_length=10_000)
+    category: str | None = PydanticField(
+        default=None, min_length=2, max_length=30, pattern=r"^[a-z]+$"
+    )
+    tags: list[str] | None = PydanticField(default=None, max_length=10)
+
+    @field_validator("title")
+    @classmethod
+    def validate_title(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
+        v = v.strip()
+        if len(v) < 3:
+            raise ValueError("title must be at least 3 characters after trimming")
+        return v
+
+    @field_validator("category", mode="before")
+    @classmethod
+    def validate_category(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
+        v = v.strip().lower()
+        if v not in ALLOWED_CATEGORIES:
+            raise ValueError(f"category must be one of {sorted(ALLOWED_CATEGORIES)}")
+        return v
 
     @field_validator("tags")
     @classmethod
-    def _validate_tags(cls, v: Optional[list[str]]) -> Optional[list[str]]:
+    def validate_tags(cls, v: list[str] | None) -> list[str] | None:
         if v is None:
             return None
         return _normalize_tags(v)
+
+    @model_validator(mode="after")
+    def work_notes_need_work_tag(self) -> Self:
+        """Cross-field rule: if category becomes work, the work tag must be present."""
+        if self.category == "work" and self.tags is not None and "work" not in self.tags:
+            raise ValueError("work notes must include the 'work' tag")
+        return self
+
+
+# Pure Pydantic model for tag validation (no DB table)
+class Tag(BaseModel):
+    """Validation-only model for tag names."""
+
+    name: str = PydanticField(min_length=2, max_length=30)
+
+    @field_validator("name")
+    @classmethod
+    def clean_name(cls, v: str) -> str:
+        """Strip, lowercase and restrict to lowercase letters, digits and hyphens."""
+        v = v.strip().lower()
+        if not re.match(r"^[a-z0-9-]+$", v):
+            raise ValueError("tag name must be lowercase letters, digits or hyphens")
+        return v
 
 
 # SQLModel table: tags stored as CSV string (SQLite has no array type)
@@ -94,8 +199,10 @@ SessionDep = Annotated[Session, Depends(get_session)]
 def _tags_to_csv(tags: list[str]) -> str:
     return ",".join(tags)
 
+
 def _tags_to_list(tags_csv: str) -> list[str]:
     return tags_csv.split(",") if tags_csv else []
+
 
 def _note_to_dict(note: Note) -> dict:
     """Convert a DB Note into the API response shape (tags as list)."""

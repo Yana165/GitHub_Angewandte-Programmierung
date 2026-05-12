@@ -19,7 +19,6 @@ _Reflect on the activities, exercises, and work you completed today._
 - What did you learn or practice?
 
 
-
 ---
 
 ## 2. 🚧 What challenges did I face?
