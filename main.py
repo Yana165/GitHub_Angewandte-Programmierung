@@ -20,6 +20,41 @@ app = fapi(
     version= "1.0.0"
 )
 
+###############################
+#### Tag 1: Erste Einrichtung  ####
+###############################
+@app.get("/square/{number}")
+def calculate_square(number: int):
+    result = number * number
+    return {
+        "number": number,
+        "square": result,
+        "calculation": f"{number} × {number} = {result}"
+    }
+
+
+@app.get("/student")
+def get_student():
+    return {
+        "name": "Yana Zimmer",
+        "semester": 2,
+        "course": "Wirtschaftsinformatik",
+        "university": "HS Coburg"
+    }
+
+
+@app.get("/double/{number}")
+def calculate_double(number: int):
+    result = number * 2
+    return {
+        "number": number,
+        "double": result,
+        "calculation": f"{number} × 2 = {result}"
+    }
+
+
+
+
 ##################################
 #### Note API Endpoints Day 2 ####
 ##################################
