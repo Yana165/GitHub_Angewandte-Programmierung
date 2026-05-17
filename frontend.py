@@ -14,7 +14,9 @@ def request_no():                                           # request_no sendet 
     response_json = response.json()                         # response.json() konvertiert die response in ein JSON-Format,
     return response_json["reason"]                          # Die Funktion gibt anschließend response_json["reason"] zurück.
  
-#Initialisierung
+# Initialisierung von session state für die beiden Texte, damit sie auch ohne Klick auf die Buttons schon einen 
+# Wert haben und angezeigt werden können.
+
 if "text1" not in st.session_state:
     st.session_state["text1"] = request_no()
 
@@ -46,7 +48,7 @@ name = st.text_input("Name")
 st.write(name)
 
 
-# ---------- Notizen-API ----------
+### Notizen-API ###
 NOTES_API = "http://127.0.0.1:8000"                         # URL des meiner FastApi App
 
 

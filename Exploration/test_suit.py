@@ -16,9 +16,15 @@ import requests
 BASE_URL = "http://127.0.0.1:8000"
 
 
-# ---------------------------------------------------------------------------
-# Fixtures
-# ---------------------------------------------------------------------------
+# Diese Test-Suite ist in mehrere Abschnitte unterteilt, die jeweils verschiedene Aspekte der API testen, z.B. die Erstellung von Notizen, das Abrufen von Notizen, die 
+# Filterung, die Statistiken, und die Validierung von Eingaben.
+
+##############
+## Fixtures ##
+##############
+# Fixtures sind spezielle Funktionen, die in pytest verwendet werden, um Testdaten oder Testumgebungen bereitzustellen. Sie ermöglichen es, 
+# wiederverwendbare Testdaten zu erstellen und sicherzustellen, dass jeder Test mit einer sauberen Umgebung beginnt. In diesem Testcode werden Fixtures verwendet, 
+# um Notizen zu erstellen, die in den Tests verwendet werden können, und um sicherzustellen, dass die API erreichbar ist, bevor die Tests ausgeführt werden.
 
 @pytest.fixture(scope="session", autouse=True)
 def _require_server():
@@ -53,7 +59,7 @@ def note_id(note) -> int:
     return note["id"]
 
 
-@pytest.fixture
+@pytest.fixture # Diese Fixture erstellt eine kleine Anzahl von Notizen mit unterschiedlichen Kategorien, Tags und Inhalten, um die Filterungs- und Statistik-Endpunkte der API zu testen.
 def seeded_notes() -> list[dict]:
     """Create a small varied set of notes to support filtering/stats tests."""
     seeds = [
@@ -88,12 +94,12 @@ def seeded_notes() -> list[dict]:
             "tags": ["urgent", "deadline", "project", "work"],
         },
     ]
-    return [_create_note(**seed) for seed in seeds]
+    return [_create_note(**seed) for seed in seeds] # Die Fixture gibt eine Liste der erstellten Notizen zurück, die in den Tests verwendet werden kann, um sicherzustellen, dass die Filterungs- und Statistik-Endpunkte korrekt funktionieren.
 
 
-# ---------------------------------------------------------------------------
-# Root
-# ---------------------------------------------------------------------------
+##########
+## Root ##
+##########
 
 def test_root_returns_metadata():
     response = requests.get(f"{BASE_URL}/")
@@ -101,9 +107,9 @@ def test_root_returns_metadata():
     assert isinstance(response.json(), dict)
 
 
-# ---------------------------------------------------------------------------
-# Create / Read
-# ---------------------------------------------------------------------------
+###################
+## Create / Read ##
+###################
 
 def test_create_note_returns_201_and_payload():
     payload = {
@@ -132,7 +138,7 @@ def test_create_note_normalizes_tags():
             "title": "Tag Test",
             "content": "Check tag normalization",
             "category": "general",
-            "tags": ["URGENT", "urgent", "Meeting"],
+            "tags": ["URGENT", "urgent", "Meeting"], 
         },
     )
     assert response.status_code == 201, response.text
@@ -156,12 +162,15 @@ def test_get_single_note(note_id):
 
 def test_get_missing_note_returns_404():
     response = requests.get(f"{BASE_URL}/notes/99999999999")
-    assert response.status_code == 404
+    assert response.status_code == 404 # Es wird erwartet, dass die API einen 404-Fehler zurückgibt, wenn eine Notiz mit einer ID angefordert wird, die nicht existiert.
 
 
-# ---------------------------------------------------------------------------
-# Task 1: Combined filters
-# ---------------------------------------------------------------------------
+################################
+## Task 1: Kombinierte Filter ##
+################################
+
+# Die folgenden Tests überprüfen die Funktionalität der kombinierten Filterung der Notizen, indem sie verschiedene Kombinationen von Filterparametern 
+# (Kategorie, Tag und Suchbegriff) an den Endpoint "/notes" senden und sicherstellen, dass die zurückgegebenen Notizen den angegebenen Kriterien entsprechen.
 
 def test_filter_by_category(seeded_notes):
     response = requests.get(f"{BASE_URL}/notes", params={"category": "work"})
@@ -200,13 +209,13 @@ def test_combined_filters(seeded_notes):
         assert n["category"] == "work"
         assert "urgent" in n["tags"]
         assert (
-            "meeting" in n["title"].lower() or "meeting" in n["content"].lower()
+            "meeting" in n["title"].lower() or "meeting" in n["content"].lower()  # Die Tests stellen sicher, dass die API korrekt auf die kombinierten Filterparameter reagiert und nur Notizen zurückgibt, die alle angegebenen Kriterien erfüllen.
         )
 
 
-# ---------------------------------------------------------------------------
-# Task 2: Statistics
-# ---------------------------------------------------------------------------
+#########################
+## Task 2: Statistiken ##
+#########################
 
 def test_statistics_structure(seeded_notes):
     response = requests.get(f"{BASE_URL}/notes/stats")
@@ -222,12 +231,15 @@ def test_statistics_structure(seeded_notes):
     assert isinstance(stats["by_category"], dict)
     assert isinstance(stats["top_tags"], list)
     assert isinstance(stats["unique_tags_count"], int)
-    assert stats["total_notes"] >= len(seeded_notes)
+    assert stats["total_notes"] >= len(seeded_notes) # Es wird erwartet, dass die Gesamtzahl der Notizen in den Statistiken mindestens so groß ist wie die Anzahl der in der Fixture "seeded_notes" erstellten Notizen, da diese Notizen Teil der Gesamtstatistik sein sollten.
 
 
-# ---------------------------------------------------------------------------
-# Task 3: Categories resource
-# ---------------------------------------------------------------------------
+##################################
+## Task 3: Kategorien-Ressource ##
+##################################
+
+# Diese Tests überprüfen die Funktionalität der Kategorien-Ressource, indem sie sicherstellen, dass die API eine Liste der vorhandenen Kategorien 
+# zurückgibt und dass Notizen korrekt nach Kategorie gefiltert werden können.
 
 def test_list_categories(seeded_notes):
     response = requests.get(f"{BASE_URL}/categories")
@@ -246,9 +258,13 @@ def test_notes_by_category(seeded_notes):
     assert all(n["category"] == "work" for n in notes)
 
 
-# ---------------------------------------------------------------------------
-# Task 4: PATCH (partial update)
-# ---------------------------------------------------------------------------
+####################################
+## Task 4: PATCH (partial update) ##
+####################################
+
+# Diese Tests überprüfen die Funktionalität des PATCH-Endpunkts, indem sie sicherstellen, dass nur die bereitgestellten Felder aktualisiert werden, dass das Löschen von 
+# Tags möglich ist, dass die Tags ersetzt und nicht angehängt werden, dass jedes Feld einzeln aktualisiert werden kann, und dass die ID und das Erstellungsdatum einer 
+# Notiz bei einem PATCH-Update unverändert bleiben.
 
 def test_patch_updates_only_provided_fields(note):
     response = requests.patch(
@@ -271,9 +287,9 @@ def test_patch_missing_note_returns_404():
     assert response.status_code == 404
 
 
-# ---------------------------------------------------------------------------
-# Task 5: Date-based filtering
-# ---------------------------------------------------------------------------
+######################################
+## Task 5: Datumsbasierte Filterung ## 
+######################################
 
 def test_filter_created_after(seeded_notes):
     yesterday = (datetime.now() - timedelta(days=1)).isoformat()
@@ -304,9 +320,9 @@ def test_filter_date_range(seeded_notes):
     assert len(response.json()) > 0
 
 
-# ---------------------------------------------------------------------------
-# Tags resource
-# ---------------------------------------------------------------------------
+###############################################
+## Tags Ressource und Tag-basierte Filterung ##
+###############################################
 
 def test_list_tags(seeded_notes):
     response = requests.get(f"{BASE_URL}/tags")
@@ -325,9 +341,12 @@ def test_notes_by_tag(seeded_notes):
     assert all("urgent" in n["tags"] for n in notes)
 
 
-# ---------------------------------------------------------------------------
-# PUT (full update)
-# ---------------------------------------------------------------------------
+#######################
+## PUT (full update) ##
+#######################
+
+# Diese Tests überprüfen die Funktionalität des PUT-Endpunkts, indem sie sicherstellen, dass alle Felder einer Notiz ersetzt werden, dass ein PUT-Request mit einem 
+# unvollständigen Body einen 422-Fehler zurückgibt, und dass das Löschen von Tags möglich ist.
 
 def test_put_replaces_all_fields(note_id):
     update = {
@@ -358,9 +377,9 @@ def test_put_missing_note_returns_404():
     assert response.status_code == 404
 
 
-# ---------------------------------------------------------------------------
-# DELETE
-# ---------------------------------------------------------------------------
+#############
+## Löschen ##
+#############
 
 def test_delete_note(note_id):
     response = requests.delete(f"{BASE_URL}/notes/{note_id}")
@@ -383,9 +402,9 @@ def test_delete_is_idempotent_after_first_call(note_id):
     assert second.status_code == 404
 
 
-# ---------------------------------------------------------------------------
-# Validation: 422 on bad payloads
-# ---------------------------------------------------------------------------
+################################################
+## Validierung: 422 bei fehlerhaften Payloads ##
+################################################
 
 @pytest.mark.parametrize(
     "payload",
@@ -419,9 +438,13 @@ def test_invalid_created_before_returns_422(bad_date):
     assert response.status_code == 422
 
 
-# ---------------------------------------------------------------------------
-# Tag normalization (deeper)
-# ---------------------------------------------------------------------------
+###################################
+## Erweiterte Tag-Normalisierung ##
+###################################
+
+# Diese Tests überprüfen die erweiterte Normalisierung von Tags, indem sie sicherstellen, dass führende und nachfolgende Leerzeichen entfernt werden, dass Tags auf 
+# Kleinbuchstaben normalisiert werden, dass zu kurze Tags einen 422-Fehler zurückgeben, dass die maximale Anzahl von Tags pro Notiz eingehalten wird, und dass identische 
+# Tags über mehrere Notizen hinweg nicht dupliziert werden.
 
 def test_tag_whitespace_is_stripped():
     body = _create_note(tags=["  spaced  ", "spaced"])
@@ -445,7 +468,7 @@ def test_create_note_with_10_tags():
     response = requests.post(f"{BASE_URL}/notes", json=payload)
     assert response.status_code == 201
     body = response.json()
-    assert sorted(body["tags"]) == sorted(tags)
+    assert sorted(body["tags"]) == sorted(tags) 
 
 def test_create_note_with_11_tags():
     tags = [f"tag{i}" for i in range(11)]
@@ -455,7 +478,7 @@ def test_create_note_with_11_tags():
 
 
 
-def test_tags_are_reused_across_notes():
+def test_tags_are_reused_across_notes(): # Dieser Test überprüft, dass das Erstellen von zwei Notizen mit demselben Tag nicht zu Duplikaten in der Liste der Tags führt. Es wird erwartet, dass die API die Tags normalisiert und dedupliziert, sodass das Tag "shared-tag-xyz" nur einmal in der Liste der Tags erscheint, auch wenn es in mehreren Notizen verwendet wird.
     """Creating two notes with the same tag should not produce duplicates in /tags."""
     _create_note(tags=["shared-tag-xyz"])
     _create_note(tags=["shared-tag-xyz"])
@@ -474,12 +497,16 @@ def test_tags_field_omitted_defaults_to_empty():
         json={"title": "no tags", "content": "x", "category": "general"},
     )
     assert response.status_code == 201
-    assert response.json()["tags"] == []
+    assert response.json()["tags"] == [] 
 
 
-# ---------------------------------------------------------------------------
-# PATCH semantics
-# ---------------------------------------------------------------------------
+#########################
+## Semantik von PATCH  ##
+#########################
+
+# Diese Tests überprüfen die Funktionalität des PATCH-Endpunkts, indem sie sicherstellen, dass nur die bereitgestellten Felder aktualisiert werden, dass das Löschen von 
+# Tags möglich ist, dass die Tags ersetzt und nicht angehängt werden, dass jedes Feld einzeln aktualisiert werden kann, und dass die ID und das Erstellungsdatum einer 
+# Notiz bei einem PATCH-Update unverändert bleiben.
 
 def test_patch_with_empty_body_changes_nothing(note):
     response = requests.patch(f"{BASE_URL}/notes/{note['id']}", json={})
@@ -499,7 +526,7 @@ def test_patch_can_clear_tags(note):
     assert response.json()["tags"] == []
 
 
-def test_patch_replaces_tags_not_appends(note):
+def test_patch_replaces_tags_not_appends(note): # Dieser Test überprüft, dass ein PATCH-Request, der ein neues Set von Tags bereitstellt, die vorhandenen Tags vollständig ersetzt und nicht einfach an sie anhängt. Es wird erwartet, dass nach dem PATCH-Request nur die neuen Tags ["only-this"] in der Notiz vorhanden sind und die vorherigen Tags entfernt wurden.
     """PATCH on tags should replace the set, not merge."""
     response = requests.patch(
         f"{BASE_URL}/notes/{note['id']}", json={"tags": ["only-this"]}
@@ -528,9 +555,12 @@ def test_patch_preserves_id_and_created_at(note):
     assert updated["created_at"] == note["created_at"]
 
 
-# ---------------------------------------------------------------------------
-# PUT semantics
-# ---------------------------------------------------------------------------
+#####################
+## Semantik vonPUT ##
+#####################
+
+# Diese Tests überprüfen die Funktionalität des PUT-Endpunkts, indem sie sicherstellen, dass alle Felder einer Notiz ersetzt werden, dass ein PUT-Request mit einem
+# unvollständigen Body einen 422-Fehler zurückgibt, und dass das Löschen von Tags möglich ist.
 
 def test_put_can_clear_tags(note_id):
     response = requests.put(
@@ -549,9 +579,9 @@ def test_put_with_partial_body_returns_422(note_id):
     assert response.status_code == 422
 
 
-# ---------------------------------------------------------------------------
-# Filtering edge cases
-# ---------------------------------------------------------------------------
+##########################
+## Filtering edge cases ##
+##########################
 
 def test_search_is_case_insensitive(seeded_notes):
     lower = requests.get(f"{BASE_URL}/notes", params={"search": "meeting"}).json()
@@ -609,9 +639,9 @@ def test_filter_created_before_in_past_returns_empty(seeded_notes):
     assert response.json() == []
 
 
-# ---------------------------------------------------------------------------
-# Statistics deeper checks
-# ---------------------------------------------------------------------------
+####################################
+## Erweiterte Statistik Prüfungen ##
+####################################
 
 def test_statistics_top_tags_shape(seeded_notes):
     stats = requests.get(f"{BASE_URL}/notes/stats").json()
@@ -647,9 +677,9 @@ def test_statistics_by_category_sums_to_total(seeded_notes):
     assert sum(stats["by_category"].values()) == stats["total_notes"]
 
 
-# ---------------------------------------------------------------------------
-# Resource navigation
-# ---------------------------------------------------------------------------
+###########################
+## Ressourcen Navigation ##
+###########################
 
 def test_unknown_tag_resource_returns_empty_list():
     """Requesting notes for a non-existent tag should return [], not 404."""
@@ -683,9 +713,9 @@ def test_tags_endpoint_is_sorted_and_unique(seeded_notes):
     assert len(tags) == len(set(tags))
 
 
-# ---------------------------------------------------------------------------
-# End-to-end flows
-# ---------------------------------------------------------------------------
+######################
+## End-to-end flows ##
+######################
 
 def test_full_crud_lifecycle():
     """Create → read → patch → put → delete → verify gone."""
@@ -719,7 +749,7 @@ def test_full_crud_lifecycle():
     assert put["category"] == "personal"
     assert put["tags"] == ["bput"]
 
-    # Delete
+    # Löschen
     assert requests.delete(f"{BASE_URL}/notes/{nid}").status_code == 204
     assert requests.get(f"{BASE_URL}/notes/{nid}").status_code == 404
 

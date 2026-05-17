@@ -20,9 +20,14 @@ app = fapi(
     version= "1.0.0"
 )
 
-###############################
+###################################
 #### Tag 1: Erste Einrichtung  ####
-###############################
+###################################
+
+# Hier sind die ersten Endpunkte drin, die wir in der Vorlesung erstellt haben. Sie dienen als Beispiele für einfache Endpunkte,
+# die verschiedene Arten von Antworten zurückgeben (z.B. personalisierte Grüße, Überprüfung von Bedingungen wie Volljährigkeit, etc.). 
+# Diese Endpunkte können als Grundlage für das Verständnis von FastAPI und der Erstellung eigener Endpunkte dienen. 
+
 @app.get("/square/{number}")
 def calculate_square(number: int):
     result = number * number
@@ -56,8 +61,13 @@ def calculate_double(number: int):
 
 
 ##################################
-#### Note API Endpoints Day 2 ####
+#### Tag 2: Note API Endpunkte ###
 ##################################
+
+# Hier sind alle Endpunkte für die Notizen-API drin, z.B. zum Erstellen, Abrufen, Aktualisieren und Löschen von Notizen.
+# Außerdem gibt es Endpunkte für das Abrufen von Kategorien und Tags. Diese Endpunkte verwenden Pydantic-Modelle für die 
+# Validierung der Eingabedaten und SQLModel für die Interaktion mit der SQLite-Datenbank. Die Endpunkte sind so gestaltet, 
+# dass sie die Anforderungen der Notizen-API erfüllen, und können als Grundlage für die Erstellung eigener APIs dienen.
 
 ALLOWED_CATEGORIES = {"work", "personal", "school", "ideas", "general"}
 
@@ -189,7 +199,10 @@ class NoteUpdate(BaseModel):
         return self
 
 
-# Pure Pydantic model for tag validation (no DB table)
+# Reines Pydantic-Modell zur Validierung von Tags (keine DB-Tabelle)
+# Dieses Modell wird verwendet, um einzelne Tags zu validieren, z.B. in einem separaten Endpunkt zum Erstellen von Tags 
+# oder als Teil der Validierung in NoteCreate/NoteUpdate.
+
 class Tag(BaseModel):
     """Validation-only model for tag names."""
 
@@ -205,7 +218,10 @@ class Tag(BaseModel):
         return v
 
 
-# SQLModel table: tags stored as CSV string (SQLite has no array type)
+# SQLModel-Tabelle: Tags als CSV-String gespeichert (SQLite hat keinen Array-Typ)
+# Dieses Modell repräsentiert die Datenbanktabelle für Notizen. Die Tags werden als CSV-String gespeichert, 
+# da SQLite keinen nativen Array-Typ unterstützt.
+
 class Note(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     title: str
@@ -230,7 +246,8 @@ def get_session():
 SessionDep = Annotated[Session, Depends(get_session)]
 
 
-# Helpers: convert between CSV string (DB) and list (API)
+# Helper-Funktionen: Konvertierung zwischen CSV-String (DB) und Liste (API)
+# Diese Funktionen werden in den Endpunkten verwendet, um die Tags im DB-Format (CSV) zu speichern und im API-Format (Liste) zurückzugeben.
 def _tags_to_csv(tags: list[str]) -> str:
     return ",".join(tags)
 
@@ -431,8 +448,10 @@ def get_notes_by_tag(tag_name: str, session: SessionDep) -> list[dict]:
 
 
 ##################################
-#### Day 3: Query Parameters #####
+#### Tag 3: Query Parameter  #####
 ##################################
+
+# Ein Query-Parameter ist ein zusätzlicher Wert in einer URL, mit dem man einer Anfrage Informationen mitgibt
 
 @app.get("/queryparameters")
 def get_query_parameters(param1: str, param2: int) -> dict:
@@ -449,9 +468,13 @@ def get_query_parameters(param1: str, param2: int) -> dict:
         return {"param1": param1, "param2": param2, "filtered_names": namen_gefiltert}
 
 
-##################################
-#### Day 4: Greeting Endpoints ###
-##################################
+####################################
+#### Tag 4: Begrüßungs Endpunkte ###
+####################################
+
+# Hier sind alle Greetings drin, die wir in der Vorlesung erstellt haben. Sie dienen als Beispiele für einfache Endpunkte, 
+# die verschiedene Arten von Antworten zurückgeben (z.B. personalisierte Grüße, Überprüfung von Bedingungen wie Volljährigkeit, 
+# etc.). Diese Endpunkte können als Grundlage für das Verständnis von FastAPI und der Erstellung eigener Endpunkte dienen.
 
 class GreetingResponse(BaseModel):
     """Response model for greeting endpoints

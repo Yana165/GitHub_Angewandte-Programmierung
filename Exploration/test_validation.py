@@ -6,6 +6,12 @@ import main
 from main import app, Tag
 
 
+
+# TestClient ermöglicht es, HTTP-Anfragen an die FastAPI-Anwendung zu senden, ohne einen echten Server zu starten. 
+# Dadurch können wir die Endpunkte direkt testen und die Antworten überprüfen. 
+# In diesem Testcode verwenden wir TestClient, um verschiedene Szenarien für die Notizen-API zu testen, z.B. das 
+# Erstellen von Notizen mit ungültigen Daten, das Aktualisieren von Notizen, und die Validierung von Tags.
+
 client = TestClient(app)
 
 
@@ -19,7 +25,7 @@ def clean_notes(tmp_path, monkeypatch):
     yield temp_db
 
 
-def test_create_note_rejects_short_title(clean_notes):
+def test_create_note_rejects_short_title(clean_notes):  # clean_notes ist ein pytest fixture, das sicherstellt, dass die Tests mit einer sauberen Datenbank arbeiten, um unerwünschte Wechselwirkungen zwischen Tests zu vermeiden.
     """POST /notes with title shorter than 3 chars must return 422."""
     response = client.post("/notes", json={
         "title": "ab",
@@ -27,7 +33,7 @@ def test_create_note_rejects_short_title(clean_notes):
         "category": "general",
         "tags": [],
     })
-    assert response.status_code == 422
+    assert response.status_code == 422 
 
 
 def test_create_note_rejects_unknown_category(clean_notes):
@@ -38,7 +44,7 @@ def test_create_note_rejects_unknown_category(clean_notes):
         "category": "banana",
         "tags": [],
     })
-    assert response.status_code == 422
+    assert response.status_code == 422    
 
 
 def test_create_note_normalizes_tags(clean_notes):
@@ -54,7 +60,7 @@ def test_create_note_normalizes_tags(clean_notes):
     assert sorted(data["tags"]) == sorted(["urgent", "meeting", "q2"])
 
 
-def test_create_note_forbids_extra_fields(clean_notes):
+def test_create_note_forbids_extra_fields(clean_notes):     # Dieser Test überprüft, ob die API korrekt auf ungültige Eingaben reagiert, indem er versucht, eine Notiz mit einem zusätzlichen Feld (tagz statt tags) zu erstellen. 
     """POST /notes with an extra field (typo) must return 422 because extra='forbid'."""
     response = client.post("/notes", json={
         "title": "Valid title",
@@ -74,7 +80,7 @@ def test_work_note_requires_work_tag(clean_notes):
         "category": "work",
         "tags": [],
     })
-    assert response_fail.status_code == 422
+    assert response_fail.status_code == 422     # ValidationError wegen @root_validator
 
     response_ok = client.post("/notes", json={
         "title": "Work note with work tag",
@@ -105,7 +111,7 @@ def test_patch_with_empty_body_succeeds(clean_notes):
     assert data["tags"] == ["original"]
 
 
-def test_patch_with_invalid_title_fails(clean_notes):
+def test_patch_with_invalid_title_fails(clean_notes):               
     """PATCH /notes/{id} with an invalid title must return 422."""
     create_resp = client.post("/notes", json={
         "title": "Valid title",
@@ -123,4 +129,4 @@ def test_patch_with_invalid_title_fails(clean_notes):
 def test_tag_name_rejects_uppercase(clean_notes):
     """Tag model must reject names containing invalid characters (e.g. spaces)."""
     with pytest.raises(ValidationError):
-        Tag(name="UPPER CASE")
+        Tag(name="UPPER CASE")  # Großbuchstaben sind nicht erlaubt, da regex="^[a-z0-9]+$" in Tag definiert ist

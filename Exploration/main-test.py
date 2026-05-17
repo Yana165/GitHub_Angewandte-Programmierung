@@ -7,6 +7,8 @@ import main
 from main import app
 
 ###### Tests auch für Hausaufgaben aller Tage #########
+# Diese Tests decken die Funktionalität der Notizen-API ab, einschließlich CRUD-Operationen, Filterung, Fehlerfälle, und die speziellen Features aus Tag 3 (Statistiken, Kategorien, PATCH).
+# Sie verwenden FastAPI's TestClient, um die Endpunkte direkt zu testen, ohne einen laufenden Server zu benötigen. Dadurch können wir die API-Funktionalität isoliert und effizient überprüfen. 
 
 
 client = TestClient(app)
@@ -26,9 +28,9 @@ def clean_notes(tmp_path, monkeypatch):
     monkeypatch.setattr(main, "engine", test_engine)
     yield temp_db
 
-# ============================================================================
-# TESTS FOR main.py (Notes API)
-# ============================================================================
+###################################
+## Tests für main.py (Notes API) ##
+###################################
 
 def test_create_and_get_note(clean_notes):
     """Test creating a note and retrieving it by ID"""
@@ -57,7 +59,7 @@ def test_get_note_not_found(clean_notes):
     """Test that requesting a non-existent note returns 404"""
     response = notes_client.get("/notes/999999")
     assert response.status_code == 404
-    assert "detail" in response.json()
+    assert "detail" in response.json() # Überprüfen, dass die Fehlermeldung ein "detail"-Feld enthält
 
 
 def test_notes_stats_structure(clean_notes):
@@ -75,9 +77,13 @@ def test_notes_stats_structure(clean_notes):
     assert isinstance(data["by_category"], dict)
     assert isinstance(data["top_tags"], list)
 
-# ============================================================================
-# TESTS FOR main_tag_3.py (Query Parameters from Day 3)
-# ============================================================================
+#########################################################
+## Tests für main_tag_3.py (Query Parameter aus Tag 3) ##
+#########################################################
+
+# Diese Tests überprüfen die Funktionalität des Endpunkts, der Query-Parameter verarbeitet, indem sie sicherstellen, dass die Filterung der Namen 
+# korrekt funktioniert, dass keine Übereinstimmungen eine leere Liste zurückgeben, und dass das Fehlen erforderlicher Parameter einen 422-Fehler 
+# verursacht.
 
 def test_query_parameters_filter_names():
     """Test that the query parameter endpoint filters names correctly"""
@@ -104,15 +110,15 @@ def test_query_parameters_no_match():
 def test_query_parameters_missing_required():
     """Test that missing required query parameters returns 422"""
     response = query_client.get("/queryparameters")
-    assert response.status_code == 422
+    assert response.status_code == 422 # Unprocessable Entity, da param1 und param2 fehlen
 
 
-# ============================================================================
+#################################################################################################
 # SESSION: day-04-hometests.py – Tag 4 Hausaufgabe
-# ============================================================================
-# Covers: Task 1 (CRUD), Task 2 (Filtering), Task 3 (Errors), Task 4 (Day 3)
-# Uses FastAPI TestClient – no running server needed.
-# ============================================================================
+#################################################################################################
+# Deckt ab: Aufgabe 1 (CRUD), Aufgabe 2 (Filterung), Aufgabe 3 (Fehler), Aufgabe 4 (Tag 3)
+# Verwendet FastAPI TestClient – kein laufender Server nötig.
+#################################################################################################
 
 NOTE = {
     "title": "Test Note",
@@ -124,12 +130,15 @@ NOTE = {
 
 def _create(data=None):
     """Helper: POST a note and return its JSON."""
-    return client.post("/notes", json=data or NOTE).json()
+    return client.post("/notes", json=data or NOTE).json() 
 
 
-# ============================================================================
+##########################
 # Task 1 – Basic CRUD
-# ============================================================================
+##########################
+
+# Diese Tests überprüfen die grundlegenden CRUD-Operationen der Notizen-API, indem sie sicherstellen, dass Notizen korrekt erstellt, abgerufen, 
+# aktualisiert und gelöscht werden, und dass die API angemessen auf ungültige Anfragen reagiert (z.B. 404 für nicht existierende Notizen).
 
 def test_create_note(clean_notes):
     """POST /notes returns 201 with id and created_at."""
@@ -153,7 +162,7 @@ def test_get_note_by_id(clean_notes):
     note_id = _create()["id"]
     response = client.get(f"/notes/{note_id}")
     assert response.status_code == 200
-    assert response.json()["id"] == note_id
+    assert response.json()["id"] == note_id     # Überprüfen, dass die zurückgegebene Notiz die erwartete ID hat
 
 
 def test_update_note(clean_notes):
@@ -177,12 +186,12 @@ def test_delete_note(clean_notes):
     note_id = _create()["id"]
     response = client.delete(f"/notes/{note_id}")
     assert response.status_code == 200
-    assert client.get(f"/notes/{note_id}").status_code == 404
+    assert client.get(f"/notes/{note_id}").status_code == 404 # Notiz sollte weg sein
 
 
-# ============================================================================
+###########################
 # Task 2 – Filtering
-# ============================================================================
+###########################
 
 def test_filter_by_category(clean_notes):
     """GET /notes?category=Work only returns notes in that category."""
@@ -222,7 +231,7 @@ def test_filter_by_search(clean_notes):
     assert "meeting" in notes[0]["title"].lower()
 
 
-def test_filter_by_tag(clean_notes):
+def test_filter_by_tag(clean_notes): # Dieser Test überprüft, dass der Endpunkt GET /notes?tag=urgent nur Notizen zurückgibt, die das Tag "urgent" enthalten. Es wird erwartet, dass die Antwort nur die Notiz mit dem Tag "urgent" enthält und dass alle zurückgegebenen Notizen tatsächlich dieses Tag in ihrer Tags-Liste haben.
     """GET /notes?tag=urgent only returns notes with that tag."""
     client.post("/notes", json={
         "title": "Urgent task", "content": "Must finish today",
@@ -276,9 +285,9 @@ def test_date_filtering(clean_notes):
     assert response_empty.json() == []
 
 
-# ============================================================================
+###########################
 # Task 3 – Error cases
-# ============================================================================
+###########################
 
 def test_create_note_missing_field(clean_notes):
     """POST /notes with missing required fields returns 422."""
@@ -307,9 +316,13 @@ def test_delete_nonexistent_note(clean_notes):
     assert response.status_code == 404
 
 
-# ============================================================================
-# Task 4 – Day 3 Homework Features (stats, categories, PATCH)
-# ============================================================================
+###############################################################
+# Task 4 – ay 3 Homework Features (stats, categories, PATCH) ##
+###############################################################
+
+# Diese Tests überprüfen die erweiterten Funktionen der Notizen-API, einschließlich der Statistiken, der Kategorieliste, der Notizen pro Kategorie, und der partiellen 
+# Aktualisierung von Notizen mit PATCH. Sie stellen sicher, dass die Statistiken korrekt berechnet werden, dass die Kategorienliste alle vorhandenen Kategorien enthält, 
+# dass die Filterung nach Kategorie funktioniert, und dass PATCH nur die angegebenen Felder aktualisiert, ohne andere zu verändern.
 
 def test_notes_statistics(clean_notes):
     """GET /notes/stats returns the expected structure and correct counts."""
@@ -340,7 +353,7 @@ def test_list_categories(clean_notes):
             "title": "Note", "content": "Content", "category": cat, "tags": [],
         })
 
-    response = client.get("/categories")
+    response = client.get("/categories") # Überprüfen, dass die Kategorienliste alle vorhandenen Kategorien enthält
     assert response.status_code == 200
     categories = response.json()
     assert "general" in categories
@@ -374,7 +387,7 @@ def test_patch_note_title_only(clean_notes):
     assert response.status_code == 200
     data = response.json()
     assert data["title"] == "Patched Title"
-    assert data["content"] == original_content
+    assert data["content"] == original_content # Überprüfen, dass der Inhalt unverändert bleibt
 
 
 def test_patch_multiple_fields(clean_notes):
@@ -394,9 +407,9 @@ def test_patch_multiple_fields(clean_notes):
     assert data["category"] == original_category
 
 
-# ============================================================================
-# SESSION: API-tests.py – Manuelle Integrationstests (laufender Server nötig)
-# ============================================================================
+################################################################################
+# SESSION: API-tests.py – Manuelle Integrationstests (laufender Server nötig) ##
+################################################################################
 
 def test_get_root():
     response = requests.get(url)
@@ -419,17 +432,17 @@ def test_post_creation():
     else:
         print("POST /create - FAILED")
 
-# ============================================================================
-# SESSION: day_04_tests.py – Tag 4 Vorlesungs-Tests
-# ============================================================================
+######################################################
+# SESSION: day_04_tests.py – Tag 4 Vorlesungs-Tests ##
+######################################################
 
 def test_read_root():
     """Test the root endpoint return hello world"""
     response = client.get("/")
-    # assert status code 200 is ok
+    # assert status code 200 ist ok
     assert response.status_code == 200
 
-    # assert response body contains expected message
+    # Überprüfe, dass die Response ein "message"-Feld mit "Hello World!" enthält
     data = response.json()
     assert data["message"] == "Hello World!"
 
@@ -440,7 +453,7 @@ def test_check_404_error():
 def test_check_greetings():
     """Test the personalized greeting endpoint with multiple random names """
     for _ in range(10):
-        name = name_faker.first_name()
+        name = name_faker.first_name() # Generiere einen zufälligen Vornamen
         response = client.get(f"/greetings/{name}")
         assert response.status_code == 200
         data = response.json()
@@ -458,6 +471,9 @@ def test_check_is_adult():
         assert data["is_adult"] == adult
 
 ##### HOMETESTS Space begins #####
+# Diese Tests überprüfen die Funktionalität der Notizen-API, einschließlich der Erstellung, Abruf, Aktualisierung, Löschung von Notizen, sowie der erweiterten Funktionen 
+# wie Statistiken und Kategorien. Sie stellen sicher, dass die API korrekt auf gültige Anfragen reagiert und angemessen auf Fehlerfälle (z.B. fehlende Felder, nicht 
+# existierende Notizen) reagiert. Außerdem testen sie die Filterung von Notizen nach Kategorie, Tag und Suchbegriff.
 
 def test_is_adult_returns_all_fields():
     """Test that the is-adult endpoint returns all expected fields with correct values"""
